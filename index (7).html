@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hall Ticket Agent — Plan Your Wealth</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:        #0B0F1A;
+    --bg2:       #111827;
+    --bg3:       #1C2333;
+    --border:    #2A3347;
+    --accent:    #3B82F6;
+    --accent2:   #1D4ED8;
+    --green:     #10B981;
+    --red:       #EF4444;
+    --yellow:    #F59E0B;
+    --text:      #F1F5F9;
+    --text2:     #94A3B8;
+    --text3:     #475569;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(1.3); }
+  }
+  .header-right { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+  /* ── Config bar ── */
+  .config-bar {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .config-bar label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .config-bar input {
+    flex: 1;
+    min-width: 280px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .config-bar input:focus { border-color: var(--accent); }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text3); flex-shrink: 0;
+    transition: background .3s;
+  }
+  .status-dot.online  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.offline { background: var(--red); }
+  .status-dot.checking { background: var(--yellow); animation: pulse 1s infinite; }
+  #statusText { font-size: 12px; color: var(--text2); white-space: nowrap; }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 14px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--bg2);
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(59,130,246,.05); }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; display: block; }
+  .upload-zone h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .upload-zone p  { font-size: 13px; color: var(--text2); }
+  .upload-zone span { font-size: 11px; color: var(--text3); display: block; margin-top: 6px; }
+
+  /* ── Stats grid ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+  .stat {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-family: var(--mono);
+  }
+  .stat-val.blue   { color: var(--accent); }
+  .stat-val.green  { color: var(--green); }
+  .stat-val.red    { color: var(--red); }
+  .stat-val.yellow { color: var(--yellow); }
+  .stat-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em; }
+
+  /* ── Progress ── */
+  .progress-wrap { margin-bottom: 1.5rem; display: none; }
+  .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .progress-label { font-size: 13px; color: var(--text2); }
+  .progress-pct   { font-size: 13px; font-family: var(--mono); color: var(--accent); }
+  .progress-bar   { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .progress-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 3px; transition: width .4s; }
+
+  /* ── Action buttons ── */
+  .btn-row { display: flex; gap: 10px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    background: var(--bg2); color: var(--text);
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover   { background: var(--bg3); border-color: var(--accent); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-danger  { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn-danger:hover { opacity: .85; }
+  .btn-green   { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn-green:hover { opacity: .85; }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .table-header {
+    padding: .875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .table-header h3 { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; }
+  .table-scroll { max-height: 420px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    padding: 10px 14px; text-align: left;
+    font-size: 11px; font-weight: 500; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .06em;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 1;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text2); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(59,130,246,.04); }
+  .urn-cell { font-family: var(--mono); font-size: 12px; color: var(--text); }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;
+  }
+  .badge-pending  { background: rgba(71,85,105,.3);  color: var(--text3); }
+  .badge-running  { background: rgba(245,158,11,.15); color: var(--yellow); }
+  .badge-done     { background: rgba(16,185,129,.15); color: var(--green); }
+  .badge-error    { background: rgba(239,68,68,.15);  color: var(--red); }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .badge-running .badge-dot { animation: pulse .8s infinite; }
+
+  /* ── Log ── */
+  .log-wrap {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+  .log-header {
+    padding: .75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 600;
+    color: var(--text2); text-transform: uppercase; letter-spacing: .06em;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .log-body {
+    font-family: var(--mono); font-size: 11.5px;
+    color: var(--text2); padding: .875rem 1.25rem;
+    max-height: 180px; overflow-y: auto; line-height: 1.8;
+  }
+  .log-ok   { color: var(--green); }
+  .log-err  { color: var(--red); }
+  .log-info { color: var(--text3); }
+  .log-warn { color: var(--yellow); }
+
+  /* ── Download btn in table ── */
+  .dl-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;
+    border: 1px solid var(--green); color: var(--green);
+    background: rgba(16,185,129,.1); cursor: pointer;
+    transition: all .15s;
+  }
+  .dl-btn:hover { background: var(--green); color: #000; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 3rem; color: var(--text3); font-size: 13px; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg3); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .container { padding: 1rem; }
+    header { padding: .75rem 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Hall Ticket Agent
+  </div>
+  <div class="header-right">Plan Your Wealth</div>
+</header>
+
+<div class="container">
+
+  <!-- Config Bar -->
+  <div class="config-bar">
+    <label>Colab URL</label>
+    <input type="text" id="colabUrl" placeholder="https://xxxx.ngrok-free.app/run?key=yourkey" />
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Not connected</span>
+    <button class="btn" onclick="checkStatus()" style="padding:7px 14px;font-size:12px">Check</button>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+    <span class="upload-icon">📊</span>
+    <h3>Upload Excel file</h3>
+    <p>Drag & drop or click to browse</p>
+    <span>Columns required: URN (A) and DOB (B) — any date format</span>
+  </div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-val blue"  id="s-total">0</div><div class="stat-lbl">Total</div></div>
+    <div class="stat"><div class="stat-val yellow" id="s-pending">0</div><div class="stat-lbl">Pending</div></div>
+    <div class="stat"><div class="stat-val green"  id="s-done">0</div><div class="stat-lbl">Downloaded</div></div>
+    <div class="stat"><div class="stat-val red"    id="s-error">0</div><div class="stat-lbl">Errors</div></div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-header">
+      <span class="progress-label" id="progressLabel">Starting...</span>
+      <span class="progress-pct"   id="progressPct">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-row" id="actionRow">
+    <button class="btn btn-primary" id="startBtn" onclick="startAgent()" disabled>▶ Start Agent</button>
+    <button class="btn btn-danger"  id="stopBtn"  onclick="stopAgent()"  style="display:none">⏹ Stop</button>
+    <button class="btn btn-green"   id="zipBtn"   onclick="downloadZip()" style="display:none">⬇ Download All PDFs (ZIP)</button>
+    <button class="btn"             id="resetBtn" onclick="resetAll()"   style="display:none">↺ Reset</button>
+  </div>
+
+  <!-- Log -->
+  <div class="log-wrap" id="logWrap">
+    <div class="log-header">
+      <span>Live Log</span>
+      <span id="logCount" style="color:var(--text3);font-size:11px">0 events</span>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" id="tableWrap" style="display:none">
+    <div class="table-header">
+      <h3>Candidates</h3>
+      <span id="tableCount" style="font-size:12px;color:var(--text3)">—</span>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>URN</th>
+            <th>DOB</th>
+            <th>Status</th>
+            <th>Message</th>
+            <th>PDF</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────
+let candidates  = [];
+let results     = [];
+let stopFlag    = false;
+let running     = false;
+let logCount    = 0;
+
+// ── Drag & Drop ────────────────────────────────────
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+// ── File handling ──────────────────────────────────
+function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  if (ext === 'csv') {
+    reader.onload = e => parseCSV(e.target.result);
+    reader.readAsText(file);
+  } else {
+    reader.onload = e => {
+      const wb   = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+      parseData(data);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function parseCSV(text) {
+  const lines   = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''));
+  const data    = lines.slice(1).map(line => {
+    const vals = line.split(',').map(v => v.trim().replace(/"/g,''));
+    const obj  = {};
+    headers.forEach((h,i) => obj[h] = vals[i]||'');
+    return obj;
+  });
+  parseData(data);
+}
+
+function findCol(headers, patterns) {
+  return headers.find(h => patterns.some(p => h.toLowerCase().replace(/[\s_]/g,'').includes(p)));
+}
+
+const MONTHS = {
+  '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun',
+  '07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec'
+};
+
+function formatDOB(raw) {
+  raw = String(raw||'').trim();
+  if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(raw)) {
+    const p = raw.split('-');
+    return `${p[0]}-${p[1][0].toUpperCase()+p[1].slice(1).toLowerCase()}-${p[2]}`;
+  }
+  const cleaned = raw.replace(/\//g,'-').replace(/\./g,'-');
+  const parts   = cleaned.split('-');
+  if (parts.length === 3) {
+    let [a,b,c] = parts;
+    if (c.length===4 && a.length<=2 && MONTHS[b.padStart(2,'0')])
+      return `${a.padStart(2,'0')}-${MONTHS[b.padStart(2,'0')]}-${c}`;
+    if (a.length===4 && MONTHS[b.padStart(2,'0')])
+      return `${c.padStart(2,'0')}-${MONTHS[b.padStart(2,'0')]}-${a}`;
+    // Try dd/mm/yyyy with month number
+    if (c.length===4) {
+      const m = b.padStart(2,'0');
+      return `${a.padStart(2,'0')}-${MONTHS[m]||b}-${c}`;
+    }
+  }
+  return raw;
+}
+
+function parseData(data) {
+  if (!data.length) { alert('No data found.'); return; }
+  const headers = Object.keys(data[0]);
+  const urnCol  = findCol(headers, ['urn','rollno','rollnumber','regno','roll']);
+  const dobCol  = findCol(headers, ['dob','dateofbirth','birthdate','birth','date']);
+  if (!urnCol || !dobCol) {
+    alert(`Could not detect URN / DOB columns.\nFound: ${headers.join(', ')}`);
+    return;
+  }
+  candidates = data
+    .map((row,i) => ({
+      idx:    i+1,
+      urn:    String(row[urnCol]||'').trim(),
+      rawDob: String(row[dobCol]||'').trim(),
+      dob:    formatDOB(String(row[dobCol]||'').trim()),
+      status: 'pending',
+      msg:    '',
+      pdfB64: null,
+    }))
+    .filter(c => c.urn && c.urn.toLowerCase() !== 'urn' && c.dob);
+
+  results = candidates.map(c => ({...c}));
+  log(`📂 Loaded ${candidates.length} candidates from file`, 'info');
+  updateStats();
+  renderTable();
+  document.getElementById('tableWrap').style.display = '';
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('resetBtn').style.display = '';
+  document.getElementById('logWrap').style.display  = '';
+  document.getElementById('progressWrap').style.display = '';
+}
+
+// ── Status check ───────────────────────────────────
+async function checkStatus() {
+  const url = getStatusUrl();
+  if (!url) { alert('Enter your Colab ngrok URL first.'); return; }
+  const dot  = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className  = 'status-dot checking';
+  text.textContent = 'Checking...';
+  try {
+    const resp = await fetch(url, { method:'GET', signal: AbortSignal.timeout(8000) });
+    if (resp.ok) {
+      dot.className    = 'status-dot online';
+      text.textContent = 'Colab online ✓';
+      log('✅ Colab agent is online and reachable', 'ok');
+    } else {
+      dot.className    = 'status-dot offline';
+      text.textContent = `Error ${resp.status}`;
+    }
+  } catch(e) {
+    dot.className    = 'status-dot offline';
+    text.textContent = 'Offline / unreachable';
+    log('❌ Cannot reach Colab — check ngrok URL or restart Colab Cell 4', 'err');
+  }
+}
+
+function getRunUrl()    { return document.getElementById('colabUrl').value.trim(); }
+function getStatusUrl() {
+  const base = document.getElementById('colabUrl').value.trim();
+  if (!base) return '';
+  return base.replace('/run', '/status').split('?')[0];
+}
+
+// ── Agent run ──────────────────────────────────────
+async function startAgent() {
+  const url = getRunUrl();
+  if (!url) { alert('Enter your Colab ngrok URL first.'); return; }
+  if (!candidates.length) { alert('Upload Excel first.'); return; }
+
+  stopFlag = false; running = true;
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('stopBtn').style.display  = '';
+  document.getElementById('zipBtn').style.display   = 'none';
+
+  log(`🚀 Sending ${candidates.length} candidates to Colab agent...`, 'info');
+
+  // Build payload — send all pending candidates
+  const pending = results.filter(r => r.status === 'pending');
+  const payload = {
+    candidates: pending.map(c => ({ urn: c.urn, dob: c.dob, raw_dob: c.rawDob }))
+  };
+
+  // Mark all pending as "queued"
+  pending.forEach(c => { c.status = 'queued'; });
+  renderTable(); updateStats();
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000)
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      log(`❌ Colab returned error ${resp.status}: ${txt}`, 'err');
+      stopAgent();
+      return;
+    }
+
+    const data = await resp.json();
+
+    if (data.status === 'started' || data.status === 'ok') {
+      log(`✅ Agent started on Colab — polling for results...`, 'ok');
+      // Start polling for results
+      pollResults(url, data.job_id || null);
+    } else {
+      log(`⚠️ Unexpected response: ${JSON.stringify(data)}`, 'warn');
+    }
+
+  } catch(e) {
+    log(`❌ Failed to reach Colab: ${e.message}`, 'err');
+    log('💡 Make sure Colab Cell 4 is running and ngrok URL is correct', 'warn');
+
+    // Fallback: show instructions
+    pending.forEach(c => { c.status = 'pending'; });
+    renderTable(); updateStats();
+    stopAgent();
+  }
+}
+
+// ── Poll Colab for results ─────────────────────────
+async function pollResults(baseUrl, jobId) {
+  const pollUrl = baseUrl.replace('/run', '/results') + (jobId ? `&job=${jobId}` : '');
+  let attempts = 0;
+  const maxAttempts = 200; // poll for up to ~10 minutes
+
+  const interval = setInterval(async () => {
+    if (stopFlag || attempts >= maxAttempts) {
+      clearInterval(interval);
+      finishRun();
+      return;
+    }
+    attempts++;
+    try {
+      const resp = await fetch(pollUrl, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      // Update results from server
+      if (data.results && data.results.length) {
+        data.results.forEach(r => {
+          const local = results.find(c => c.urn === r.urn);
+          if (!local) return;
+          local.status = r.status;   // 'done' | 'error' | 'processing'
+          local.msg    = r.message || '';
+          if (r.pdf_b64) local.pdfB64 = r.pdf_b64;
+        });
+        updateStats();
+        renderTable();
+        updateProgress();
+      }
+
+      if (data.complete) {
+        clearInterval(interval);
+        log(`🎉 All done! Downloaded: ${results.filter(r=>r.status==='done').length} | Errors: ${results.filter(r=>r.status==='error').length}`, 'ok');
+        finishRun();
+      }
+    } catch(e) {
+      // Silently retry on poll errors
+    }
+  }, 3000); // poll every 3 seconds
+}
+
+function finishRun() {
+  running = false;
+  document.getElementById('startBtn').style.display = '';
+  document.getElementById('stopBtn').style.display  = 'none';
+  const hasDone = results.some(r => r.status === 'done');
+  if (hasDone) document.getElementById('zipBtn').style.display = '';
+}
+
+function stopAgent() {
+  stopFlag = true; running = false;
+  document.getElementById('startBtn').style.display = '';
+  document.getElementById('stopBtn').style.display  = 'none';
+  log('⏹ Stopped.', 'warn');
+}
+
+// ── Progress ───────────────────────────────────────
+function updateProgress() {
+  const total = results.length;
+  const done  = results.filter(r => r.status==='done' || r.status==='error').length;
+  const pct   = total ? Math.round(done/total*100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent  = pct + '%';
+  document.getElementById('progressLabel').textContent = `Processing ${done} of ${total} candidates`;
+}
+
+// ── Stats ──────────────────────────────────────────
+function updateStats() {
+  const total   = results.length;
+  const done    = results.filter(r => r.status==='done').length;
+  const err     = results.filter(r => r.status==='error').length;
+  const pending = results.filter(r => r.status==='pending'||r.status==='queued'||r.status==='processing').length;
+  document.getElementById('s-total').textContent   = total;
+  document.getElementById('s-pending').textContent = pending;
+  document.getElementById('s-done').textContent    = done;
+  document.getElementById('s-error').textContent   = err;
+}
+
+// ── Table render ───────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  document.getElementById('tableCount').textContent = `${results.length} candidates`;
+  if (!results.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty">No candidates loaded</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = results.map(r => {
+    let badge = '';
+    if      (r.status==='pending')    badge = `<span class="badge badge-pending"><span class="badge-dot"></span>Pending</span>`;
+    else if (r.status==='queued')     badge = `<span class="badge badge-pending"><span class="badge-dot"></span>Queued</span>`;
+    else if (r.status==='processing') badge = `<span class="badge badge-running"><span class="badge-dot"></span>Processing</span>`;
+    else if (r.status==='done')       badge = `<span class="badge badge-done"><span class="badge-dot"></span>Downloaded</span>`;
+    else if (r.status==='error')      badge = `<span class="badge badge-error"><span class="badge-dot"></span>Error</span>`;
+
+    const dlBtn = r.pdfB64
+      ? `<button class="dl-btn" onclick="downloadPDF('${r.urn}')">⬇ PDF</button>`
+      : `<span style="color:var(--text3);font-size:11px">—</span>`;
+
+    const msg = r.msg
+      ? `<span style="font-size:11px;color:${r.status==='error'?'var(--red)':'var(--text3)'}">${r.msg.substring(0,60)}${r.msg.length>60?'…':''}</span>`
+      : '—';
+
+    return `<tr>
+      <td style="color:var(--text3);font-size:11px">${r.idx}</td>
+      <td class="urn-cell">${r.urn}</td>
+      <td style="font-size:12px">${r.rawDob}</td>
+      <td>${badge}</td>
+      <td>${msg}</td>
+      <td>${dlBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── PDF download ───────────────────────────────────
+function downloadPDF(urn) {
+  const r = results.find(r => r.urn === urn);
+  if (!r || !r.pdfB64) return;
+  const bytes = Uint8Array.from(atob(r.pdfB64), c => c.charCodeAt(0));
+  const blob  = new Blob([bytes], { type:'application/pdf' });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href = url; a.download = `HallTicket_${urn}.pdf`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+async function downloadZip() {
+  const done = results.filter(r => r.status==='done' && r.pdfB64);
+  if (!done.length) { alert('No PDFs downloaded yet.'); return; }
+  log(`📦 Creating ZIP of ${done.length} PDFs...`, 'info');
+  const zip = new JSZip();
+  done.forEach(r => {
+    const bytes = Uint8Array.from(atob(r.pdfB64), c => c.charCodeAt(0));
+    zip.file(`HallTicket_${r.urn}.pdf`, bytes);
+  });
+  const blob = await zip.generateAsync({ type:'blob' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `HallTickets_${new Date().toLocaleDateString('en-IN').replace(/\//g,'-')}.zip`;
+  a.click(); URL.revokeObjectURL(url);
+  log(`✅ ZIP downloaded with ${done.length} PDFs`, 'ok');
+}
+
+// ── Log ────────────────────────────────────────────
+function log(msg, type='info') {
+  const box = document.getElementById('logBody');
+  const t   = new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : type === 'warn' ? 'log-warn' : 'log-info';
+  box.innerHTML += `<div class="${cls}">[${t}] ${msg}</div>`;
+  box.scrollTop  = box.scrollHeight;
+  document.getElementById('logCount').textContent = `${++logCount} events`;
+}
+
+// ── Reset ──────────────────────────────────────────
+function resetAll() {
+  candidates = []; results = []; running = false; stopFlag = false; logCount = 0;
+  document.getElementById('tableBody').innerHTML = '';
+  document.getElementById('tableWrap').style.display = 'none';
+  document.getElementById('logBody').innerHTML = '';
+  document.getElementById('logWrap').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('startBtn').style.display = '';
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('zipBtn').style.display  = 'none';
+  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  ['s-total','s-pending','s-done','s-error'].forEach(id => document.getElementById(id).textContent = '0');
+}
+</script>
+</body>
+</html>
